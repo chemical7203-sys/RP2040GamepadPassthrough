@@ -13,6 +13,7 @@
 #include "usb_descriptors.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "lwip/apps/httpd.h"
 
 // Networking headers - conditional
 #ifdef PICO_BOARD_PICO_W
@@ -25,7 +26,25 @@
 #include "lwip/timeouts.h"
 #include "netif/ethernet.h"
 #endif
-#include "lwip/apps/httpd.h"
+
+// --- Embedded Web Files ---
+const char* INDEX_PAGE =
+"<!DOCTYPE html><html><head><title>RP2040 Gamepad Config</title><style>body{font-family:sans-serif;background-color:#f0f0f0;margin:2em}.container{background-color:white;padding:2em;border-radius:8px;box-shadow:0 4px 8px rgba(0,0,0,.1);max-width:600px;margin:auto}h1{color:#333}.form-group{margin-bottom:1.5em}label{display:block;margin-bottom:.5em;font-weight:700}input[type=number],select{width:100%;padding:.5em;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}input[type=checkbox]{margin-right:.5em}.btn{background-color:#007bff;color:#fff;padding:.7em 1.2em;border:none;border-radius:4px;cursor:pointer;font-size:1em}.btn:hover{background-color:#0056b3}.notice{font-size:.9em;color:#666;margin-top:1em}</style></head><body><div class=container><h1>RP2040 Gamepad Configuration</h1><form action=/settings.cgi method=post><div class=form-group><label for=output_mode>Output Mode</label><select id=output_mode name=output_mode><option value=0 <!--#om_0-->>XInput</option><option value=1 <!--#om_1-->>Nintendo Switch</option><option value=2 <!--#om_2-->>DS4</option></select></div><div class=form-group><label>Joystick Inversion</label><input type=checkbox name=invert_lx <!--#inv_lx-->> Invert Left Stick X-Axis<br><input type=checkbox name=invert_ly <!--#inv_ly-->> Invert Left Stick Y-Axis<br><input type=checkbox name=invert_rx <!--#inv_rx-->> Invert Right Stick X-Axis<br><input type=checkbox name=invert_ry <!--#inv_ry-->> Invert Right Stick Y-Axis</div><div class=form-group><label for=deadzone_l>Left Stick Deadzone (%)</label><input type=number id=deadzone_l name=deadzone_l min=0 max=100 value=<!--#dz_l-->></div><div class=form-group><label for=deadzone_r>Right Stick Deadzone (%)</label><input type=number id=deadzone_r name=deadzone_r min=0 max=100 value=<!--#dz_r-->></div><button type=submit class=btn>Save Settings</button><p class=notice>Settings will be saved and the device will reboot.</p></form></div></body></html>";
+
+const char* REBOOT_PAGE =
+"<!DOCTYPE html><html><head><title>Rebooting...</title><meta http-equiv=refresh content=\"5;url=/\"><style>body{font-family:sans-serif;background-color:#f0f0f0;margin:2em;text-align:center}.container{background-color:white;padding:2em;border-radius:8px;box-shadow:0 4px 8px rgba(0,0,0,.1);max-width:600px;margin:auto}h1{color:#333}</style></head><body><div class=container><h1>Settings Saved!</h1><p>The device is rebooting to apply the new settings.</p><p>You will be redirected back to the main page in 5 seconds. Please reconnect if needed.</p></div></body></html>";
+
+// --- Custom Filesystem for lwIP ---
+int fs_open_custom(struct fs_file *file, const char *name) {
+    if (!strcmp(name, "/index.shtml")) {
+        file->data = INDEX_PAGE; file->len = strlen(INDEX_PAGE); file->index = file->len; file->pextension = NULL; file->flags = FS_FILE_FLAGS_SSI; return 1;
+    } else if (!strcmp(name, "/reboot.html")) {
+        file->data = REBOOT_PAGE; file->len = strlen(REBOOT_PAGE); file->index = file->len; file->pextension = NULL; return 1;
+    }
+    return 0;
+}
+void fs_close_custom(struct fs_file *file) {}
+int fs_read_custom(struct fs_file *file, char *buffer, int count) { return FS_READ_EOF; }
 
 // --- SETTINGS ---
 typedef struct {
@@ -66,7 +85,7 @@ int16_t apply_deadzone(int16_t v, uint8_t dz) { return abs(v) < ((dz * 32767) / 
 uint8_t dpad_to_hat(uint16_t buttons) {
     bool u=buttons&(1<<4),d=buttons&(1<<5),l=buttons&(1<<6),r=buttons&(1<<7);
     if(u){if(l)return 7;if(r)return 1;return 0;}if(d){if(l)return 5;if(r)return 3;return 2;}
-    if(l)return 6;if(r)return 4;return 8; // 8 is neutral for HID hat
+    if(l)return 6;if(r)return 4;return 8;
 }
 void send_xinput_report(const GamepadPayload* p) {
     int16_t lx=apply_deadzone(p->lx,settings.deadzone_l), ly=apply_deadzone(p->ly,settings.deadzone_l);
@@ -83,7 +102,6 @@ void send_switch_report(const GamepadPayload* p) {
     switch_report.buttons=p->buttons; switch_report.hat=dpad_to_hat(p->buttons);
     switch_report.lx=settings.invert_lx?-lx:lx; switch_report.ly=settings.invert_ly?-ly:ly;
     switch_report.rx=settings.invert_rx?-rx:rx; switch_report.ry=settings.invert_ry?-ry:ry;
-    // Gyro and Accel are not part of the simplified Switch report struct in this implementation
     if(tud_hid_ready()) tud_hid_report(0, &switch_report, sizeof(switch_report));
 }
 void send_ds4_report(const GamepadPayload* p) {
@@ -95,7 +113,7 @@ void send_ds4_report(const GamepadPayload* p) {
     ds4_report.rx = ((settings.invert_rx?-rx:rx) / 256) + 128;
     ds4_report.ry = ((settings.invert_ry?-ry:ry) / 256) + 128;
     ds4_report.hat = dpad_to_hat(p->buttons);
-    ds4_report.buttons = p->buttons; // Button mapping might need adjustment for DS4 layout
+    ds4_report.buttons = p->buttons;
     ds4_report.l2 = p->l2; ds4_report.r2 = p->r2;
     ds4_report.gyro_x = p->gyro_x; ds4_report.gyro_y = p->gyro_y; ds4_report.gyro_z = p->gyro_z;
     ds4_report.accel_x = p->accel_x; ds4_report.accel_y = p->accel_y; ds4_report.accel_z = p->accel_z;
