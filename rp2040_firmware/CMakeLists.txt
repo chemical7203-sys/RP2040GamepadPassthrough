@@ -11,6 +11,14 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
+# lwIP 설정 파일 추가 (pico_generate_lwip_fs보다 먼저 호출 필요)
+pico_add_lwipopts_files(
+    ${CMAKE_CURRENT_SOURCE_DIR}/lwipopts.h
+)
+
+# httpd 디렉토리의 웹 파일들을 C 소스 파일로 변환
+pico_generate_lwip_fs(${PROJECT_NAME}_fsdata ${CMAKE_CURRENT_SOURCE_DIR}/httpd)
+
 add_executable(${PROJECT_NAME}
     main.c
     ${${PROJECT_NAME}_fsdata} # 생성된 파일시스템 소스 추가
