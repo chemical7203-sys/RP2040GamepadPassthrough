@@ -5,19 +5,42 @@ project(rp2040_web_gamepad_firmware C CXX ASM)
 # Initialize the SDK
 pico_sdk_init()
 
+# --- Filesystem Generation ---
+# Find Perl to run the makefsdata script
+find_package(Perl REQUIRED)
+# Glob all files in our web root directory to use as dependencies
+file(GLOB_RECURSE FS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/httpd/*)
+
+# Define the command to generate fsdata.c
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/fsdata.c
+    COMMAND ${PERL_EXECUTABLE} ${PICO_SDK_PATH}/lib/lwip/src/apps/http/makefsdata/makefsdata.pl -h -s -r ${CMAKE_CURRENT_SOURCE_DIR}/httpd
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS ${FS_FILES}
+    COMMENT "Generating fsdata.c from httpd directory"
+)
+# Create a target to drive the custom command
+add_custom_target(fsdata_generator DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/fsdata.c)
+
+
 # --- Executable Definition ---
 add_executable(${PROJECT_NAME}
     main.c
+    # Include the generated C file as a source
+    ${CMAKE_CURRENT_BINARY_DIR}/fsdata.c
 )
+# Add a dependency to ensure fsdata.c is generated before the main build
+add_dependencies(${PROJECT_NAME} fsdata_generator)
+# Add the directory containing the generated header to the include path
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+
 
 # --- Library Linking ---
-# Link libraries FIRST to make their CMake functions available.
 target_link_libraries(${PROJECT_NAME} PRIVATE
     pico_stdlib
     hardware_uart
     pico_tinyusb
 )
-# Conditionally link the correct networking stack
 if (PICO_BOARD STREQUAL "pico_w")
     target_link_libraries(${PROJECT_NAME} PRIVATE pico_cyw43_arch_lwip_sys_freertos)
 else()
@@ -25,18 +48,10 @@ else()
 endif()
 
 
-# --- lwIP and Filesystem Configuration ---
-# Now that lwIP libraries are linked, these functions will be available.
-pico_add_lwipopts_files(${PROJECT_NAME}
-    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/lwipopts.h
-)
-pico_generate_lwip_fs(${PROJECT_NAME}_fsdata
-    ${CMAKE_CURRENT_SOURCE_DIR}/httpd
-)
-target_sources(${PROJECT_NAME} PRIVATE ${${PROJECT_NAME}_fsdata})
-
-
 # --- Compile Definitions ---
+# This file is now needed for both targets to configure lwIP
+pico_add_compile_options(${PROJECT_NAME} -I${CMAKE_CURRENT_SOURCE_DIR})
+
 if (PICO_BOARD STREQUAL "pico_w")
     add_definitions(-DPICO_BOARD_PICO_W=1)
     set(TUSB_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tusb_config_pico_w.h)
@@ -44,6 +59,7 @@ else()
     set(TUSB_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tusb_config_pico.h)
 endif()
 add_compile_definitions(TUSB_CONFIG_FILE="${TUSB_CONFIG_FILE}")
+add_compile_definitions(LWIP_HDR_OPTS_H="lwipopts.h")
 
 
 # --- Final Output ---
