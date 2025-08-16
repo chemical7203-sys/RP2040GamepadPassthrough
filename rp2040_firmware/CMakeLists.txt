@@ -14,7 +14,7 @@ file(GLOB_RECURSE FS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/httpd/*)
 # Define the command to generate fsdata.c
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/fsdata.c
-    COMMAND ${PERL_EXECUTABLE} ${PICO_SDK_PATH}/lib/lwip/src/apps/http/makefsdata/makefsdata.pl -h -s -r ${CMAKE_CURRENT_SOURCE_DIR}/httpd
+    COMMAND ${PERL_EXECUTABLE} ${PICO_SDK_PATH}/lib/lwip/contrib/apps/makefsdata/makefsdata.pl -h -s -r ${CMAKE_CURRENT_SOURCE_DIR}/httpd
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS ${FS_FILES}
     COMMENT "Generating fsdata.c from httpd directory"
