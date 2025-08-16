@@ -6,8 +6,8 @@ project(rp2040_web_gamepad_firmware C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-# Pico W 보드를 타겟으로 설정
-set(PICO_BOARD pico_w)
+# PICO_BOARD는 이제 외부에서 cmake 명령어로 설정됩니다.
+# 예: cmake -DPICO_BOARD=pico_w ..
 
 pico_sdk_init()
 
@@ -16,13 +16,27 @@ add_executable(${PROJECT_NAME}
     ${${PROJECT_NAME}_fsdata} # 생성된 파일시스템 소스 추가
 )
 
-# FreeRTOS와 lwIP를 사용하기 위해 라이브러리 추가
+# 공통 라이브러리 링크
 target_link_libraries(${PROJECT_NAME}
     pico_stdlib
-    pico_cyw43_arch_lwip_sys_freertos
     hardware_uart
     pico_tinyusb
 )
+
+# Pico W일 경우에만 Wi-Fi 및 네트워킹 관련 라이브러리 추가
+if (PICO_BOARD STREQUAL "pico_w")
+    target_link_libraries(${PROJECT_NAME} INTERFACE pico_cyw43_arch_lwip_sys_freertos)
+    add_definitions(-DPICO_BOARD_PICO_W=1) # C 코드에서 사용할 수 있도록 정의
+    set(TUSB_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tusb_config_pico_w.h)
+else()
+    # 일반 Pico의 경우, tinyusb의 RNDIS 예제에 필요한 netif 드라이버를 추가해야 합니다.
+    # 이 부분은 pico-extras에 포함되어 있을 수 있으나, 여기서는 직접 추가합니다.
+    # For now, we will assume the necessary parts are linked by tinyusb itself.
+    set(TUSB_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tusb_config_pico.h)
+endif()
+
+# 선택된 tusb_config.h 파일을 컴파일러에 전달
+add_compile_definitions(TUSB_CONFIG_FILE="${TUSB_CONFIG_FILE}")
 
 # httpd 디렉토리의 웹 파일들을 C 소스 파일로 변환
 # pico_generate_lwip_fs( <target> <directory> [ STRIP_PREFIX <prefix> ] )
