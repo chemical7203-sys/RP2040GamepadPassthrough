@@ -17,7 +17,7 @@ add_executable(${PROJECT_NAME}
 )
 
 # 공통 라이브러리 링크
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME} PRIVATE
     pico_stdlib
     hardware_uart
     pico_tinyusb
@@ -25,13 +25,12 @@ target_link_libraries(${PROJECT_NAME}
 
 # Pico W일 경우에만 Wi-Fi 및 네트워킹 관련 라이브러리 추가
 if (PICO_BOARD STREQUAL "pico_w")
-    target_link_libraries(${PROJECT_NAME} INTERFACE pico_cyw43_arch_lwip_sys_freertos)
+    target_link_libraries(${PROJECT_NAME} PRIVATE pico_cyw43_arch_lwip_sys_freertos)
     add_definitions(-DPICO_BOARD_PICO_W=1) # C 코드에서 사용할 수 있도록 정의
     set(TUSB_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tusb_config_pico_w.h)
 else()
-    # 일반 Pico의 경우, tinyusb의 RNDIS 예제에 필요한 netif 드라이버를 추가해야 합니다.
-    # 이 부분은 pico-extras에 포함되어 있을 수 있으나, 여기서는 직접 추가합니다.
-    # For now, we will assume the necessary parts are linked by tinyusb itself.
+    # 일반 Pico의 RNDIS 네트워킹을 위해 lwIP 라이브러리를 링크합니다.
+    target_link_libraries(${PROJECT_NAME} PRIVATE pico_lwip_freertos)
     set(TUSB_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tusb_config_pico.h)
 endif()
 
