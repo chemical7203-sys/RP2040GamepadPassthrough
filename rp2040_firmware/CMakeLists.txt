@@ -49,8 +49,8 @@ endif()
 
 
 # --- Compile Definitions ---
-# This file is now needed for both targets to configure lwIP
-pico_add_compile_options(${PROJECT_NAME} -I${CMAKE_CURRENT_SOURCE_DIR})
+# Add the current directory to the include path so lwipopts.h can be found
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (PICO_BOARD STREQUAL "pico_w")
     add_definitions(-DPICO_BOARD_PICO_W=1)
