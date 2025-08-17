@@ -7,32 +7,25 @@ pico_sdk_init()
 
 # --- Find Python for makefsdata.py script ---
 find_package(Python3 REQUIRED)
-
-# --- Filesystem Generation ---
-# Glob all files in our web root directory to use as dependencies
+set(MAKEFSDATA_SCRIPT ${PICO_SDK_PATH}/src/rp2_common/pico_lwip/tools/makefsdata.py)
 file(GLOB_RECURSE FS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/httpd/*)
 
-# Define the command to generate fsdata.c using the python script
+# Define the command to generate fsdata.c
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/fsdata.c
-    COMMAND ${Python3_EXECUTABLE} ${PICO_SDK_PATH}/src/rp2_common/pico_lwip/tools/makefsdata.py -h -s -r ${CMAKE_CURRENT_SOURCE_DIR}/httpd
+    COMMAND ${Python3_EXECUTABLE} ${MAKEFSDATA_SCRIPT} -h -s -r ${CMAKE_CURRENT_SOURCE_DIR}/httpd
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS ${FS_FILES}
     COMMENT "Generating fsdata.c from httpd directory"
 )
-# Create a target to drive the custom command
 add_custom_target(fsdata_generator DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/fsdata.c)
-
 
 # --- Executable Definition ---
 add_executable(${PROJECT_NAME}
     main.c
-    # Include the generated C file as a source
     ${CMAKE_CURRENT_BINARY_DIR}/fsdata.c
 )
-# Add a dependency to ensure fsdata.c is generated before the main build
 add_dependencies(${PROJECT_NAME} fsdata_generator)
-# Add the directory containing the generated header to the include path
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 
@@ -44,28 +37,15 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 if (PICO_BOARD STREQUAL "pico_w")
     target_link_libraries(${PROJECT_NAME} PRIVATE pico_cyw43_arch_lwip_sys_freertos)
+    add_definitions(-DPICO_BOARD_PICO_W=1)
 else()
     target_link_libraries(${PROJECT_NAME} PRIVATE pico_lwip_freertos)
 endif()
 
 
 # --- Compile Definitions ---
-# Add the current directory to the include path so lwipopts.h can be found
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    # Brute-force include paths for problematic headers
-    ${PICO_SDK_PATH}/src/common/pico_base/include
-    ${PICO_SDK_PATH}/src/rp2040/hardware_support/include
-    ${PICO_SDK_PATH}/lib/tinyusb/src
-)
-
-if (PICO_BOARD STREQUAL "pico_w")
-    add_definitions(-DPICO_BOARD_PICO_W=1)
-    set(TUSB_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tusb_config_pico_w.h)
-else()
-    set(TUSB_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tusb_config_pico.h)
-endif()
-add_compile_definitions(TUSB_CONFIG_FILE="${TUSB_CONFIG_FILE}")
+# Add the current directory to the include path so tusb_config.h and lwipopts.h can be found
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_compile_definitions(LWIP_HDR_OPTS_H="lwipopts.h")
 
 
