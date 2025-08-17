@@ -27,25 +27,6 @@
 #include "netif/ethernet.h"
 #endif
 
-// --- Embedded Web Files ---
-const char* INDEX_PAGE =
-"<!DOCTYPE html><html><head><title>RP2040 Gamepad Config</title><style>body{font-family:sans-serif;background-color:#f0f0f0;margin:2em}.container{background-color:white;padding:2em;border-radius:8px;box-shadow:0 4px 8px rgba(0,0,0,.1);max-width:600px;margin:auto}h1{color:#333}.form-group{margin-bottom:1.5em}label{display:block;margin-bottom:.5em;font-weight:700}input[type=number],select{width:100%;padding:.5em;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}input[type=checkbox]{margin-right:.5em}.btn{background-color:#007bff;color:#fff;padding:.7em 1.2em;border:none;border-radius:4px;cursor:pointer;font-size:1em}.btn:hover{background-color:#0056b3}.notice{font-size:.9em;color:#666;margin-top:1em}</style></head><body><div class=container><h1>RP2040 Gamepad Configuration</h1><form action=/settings.cgi method=post><div class=form-group><label for=output_mode>Output Mode</label><select id=output_mode name=output_mode><option value=0 <!--#om_0-->>XInput</option><option value=1 <!--#om_1-->>Nintendo Switch</option><option value=2 <!--#om_2-->>DS4</option></select></div><div class=form-group><label>Joystick Inversion</label><input type=checkbox name=invert_lx <!--#inv_lx-->> Invert Left Stick X-Axis<br><input type=checkbox name=invert_ly <!--#inv_ly-->> Invert Left Stick Y-Axis<br><input type=checkbox name=invert_rx <!--#inv_rx-->> Invert Right Stick X-Axis<br><input type=checkbox name=invert_ry <!--#inv_ry-->> Invert Right Stick Y-Axis</div><div class=form-group><label for=deadzone_l>Left Stick Deadzone (%)</label><input type=number id=deadzone_l name=deadzone_l min=0 max=100 value=<!--#dz_l-->></div><div class=form-group><label for=deadzone_r>Right Stick Deadzone (%)</label><input type=number id=deadzone_r name=deadzone_r min=0 max=100 value=<!--#dz_r-->></div><button type=submit class=btn>Save Settings</button><p class=notice>Settings will be saved and the device will reboot.</p></form></div></body></html>";
-
-const char* REBOOT_PAGE =
-"<!DOCTYPE html><html><head><title>Rebooting...</title><meta http-equiv=refresh content=\"5;url=/\"><style>body{font-family:sans-serif;background-color:#f0f0f0;margin:2em;text-align:center}.container{background-color:white;padding:2em;border-radius:8px;box-shadow:0 4px 8px rgba(0,0,0,.1);max-width:600px;margin:auto}h1{color:#333}</style></head><body><div class=container><h1>Settings Saved!</h1><p>The device is rebooting to apply the new settings.</p><p>You will be redirected back to the main page in 5 seconds. Please reconnect if needed.</p></div></body></html>";
-
-// --- Custom Filesystem for lwIP ---
-int fs_open_custom(struct fs_file *file, const char *name) {
-    if (!strcmp(name, "/index.shtml")) {
-        file->data = INDEX_PAGE; file->len = strlen(INDEX_PAGE); file->index = file->len; file->pextension = NULL; file->flags = FS_FILE_FLAGS_SSI; return 1;
-    } else if (!strcmp(name, "/reboot.html")) {
-        file->data = REBOOT_PAGE; file->len = strlen(REBOOT_PAGE); file->index = file->len; file->pextension = NULL; return 1;
-    }
-    return 0;
-}
-void fs_close_custom(struct fs_file *file) {}
-int fs_read_custom(struct fs_file *file, char *buffer, int count) { return FS_READ_EOF; }
-
 // --- SETTINGS ---
 typedef struct {
     uint32_t magic; uint32_t crc32;
@@ -214,7 +195,8 @@ void load_settings() {
     }else{
         settings.magic=SETTINGS_MAGIC;settings.invert_lx=false;settings.invert_ly=true;
         settings.invert_rx=false;settings.invert_ry=true;
-        settings.deadzone_l=5;settings.deadzone_r=5;settings.output_mode=0;
+        settings.deadzone_l=5;settings.deadzone_r=5;
+        settings.output_mode=0;
     }
 }
 void save_settings() {
