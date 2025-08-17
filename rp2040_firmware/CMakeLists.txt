@@ -40,7 +40,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE
     pico_stdlib
     hardware_uart
-    hardware_crc32
     pico_tinyusb
 )
 if (PICO_BOARD STREQUAL "pico_w")

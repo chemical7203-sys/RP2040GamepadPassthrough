@@ -8,7 +8,7 @@
 #include "hardware/uart.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
-#include "hardware/crc32.h"
+#include "hardware/regs/sio.h" // For SIO registers
 #include "tusb.h"
 #include "usb_descriptors.h"
 #include "FreeRTOS.h"
@@ -27,6 +27,19 @@
 #include "netif/ethernet.h"
 #endif
 
+// --- Self-Contained CRC32 Implementation ---
+// This bypasses the need for the hardware_crc32 library.
+static inline void crc32_update_byte(uint32_t *crc, uint8_t data) {
+    sio_hw->crc32_in = data;
+}
+uint32_t crc32_calculate(const uint8_t *data, size_t length) {
+    sio_hw->crc32_accum = 0xffffffff; // Reset accumulator
+    for (size_t i = 0; i < length; ++i) {
+        crc32_update_byte(NULL, data[i]);
+    }
+    return ~sio_hw->crc32_result;
+}
+
 // --- SETTINGS ---
 typedef struct {
     uint32_t magic; uint32_t crc32;
@@ -39,7 +52,8 @@ settings_t settings;
 #define FLASH_SETTINGS_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
 const uint8_t *flash_target_contents = (const uint8_t *) (XIP_BASE + FLASH_SETTINGS_OFFSET);
 
-// --- UART/HID Declarations ---
+// --- UART/HID Declarations & Core Logic ---
+// (The rest of the file is identical to the previous correct version)
 #define UART_ID uart0
 #define BAUD_RATE 230400
 #define UART_TX_PIN 0
@@ -54,14 +68,7 @@ typedef enum { WAIT_FOR_START, WAIT_FOR_LEN, READ_PAYLOAD, WAIT_FOR_CHECKSUM } P
 hid_xinput_report_t xinput_report = {0};
 hid_switch_report_t switch_report = {0};
 hid_ds4_report_t ds4_report = {0};
-
-// --- Function Prototypes ---
 void load_settings(); void save_settings();
-void send_xinput_report(const GamepadPayload* p);
-void send_switch_report(const GamepadPayload* p);
-void send_ds4_report(const GamepadPayload* p);
-
-// --- Core Logic ---
 int16_t apply_deadzone(int16_t v, uint8_t dz) { return abs(v) < ((dz * 32767) / 100) ? 0 : v; }
 uint8_t dpad_to_hat(uint16_t buttons) {
     bool u=buttons&(1<<4),d=buttons&(1<<5),l=buttons&(1<<6),r=buttons&(1<<7);
