@@ -44,8 +44,11 @@ endif()
 
 
 # --- Compile Definitions ---
-# Add the current directory to the include path so tusb_config.h and lwipopts.h can be found
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+# Add include paths. Manually adding tinyusb/src path as a brute-force fix.
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PICO_SDK_PATH}/lib/tinyusb/src
+)
 add_compile_definitions(LWIP_HDR_OPTS_H="lwipopts.h")
 
 
