@@ -51,7 +51,13 @@ endif()
 
 # --- Compile Definitions ---
 # Add the current directory to the include path so lwipopts.h can be found
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    # Brute-force include paths for problematic headers
+    ${PICO_SDK_PATH}/src/common/pico_base/include
+    ${PICO_SDK_PATH}/src/rp2040/hardware_support/include
+    ${PICO_SDK_PATH}/lib/tinyusb/src
+)
 
 if (PICO_BOARD STREQUAL "pico_w")
     add_definitions(-DPICO_BOARD_PICO_W=1)
