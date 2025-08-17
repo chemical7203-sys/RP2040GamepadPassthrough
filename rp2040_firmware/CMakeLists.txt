@@ -44,10 +44,12 @@ endif()
 
 
 # --- Compile Definitions ---
-# Add include paths. Manually adding tinyusb/src path as a brute-force fix.
+# Add include paths. Manually adding paths as a brute-force fix for a broken environment.
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${PICO_SDK_PATH}/lib/tinyusb/src
+    ${PICO_SDK_PATH}/lib/FreeRTOS-Kernel/include
+    ${PICO_SDK_PATH}/lib/FreeRTOS-Kernel/portable/GCC/ARM_CM0
 )
 add_compile_definitions(LWIP_HDR_OPTS_H="lwipopts.h")
 
