@@ -26,8 +26,6 @@ add_executable(${PROJECT_NAME}
     ${CMAKE_CURRENT_BINARY_DIR}/fsdata.c
 )
 add_dependencies(${PROJECT_NAME} fsdata_generator)
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-
 
 # --- Library Linking ---
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -37,20 +35,21 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 if (PICO_BOARD STREQUAL "pico_w")
     target_link_libraries(${PROJECT_NAME} PRIVATE pico_cyw43_arch_lwip_sys_freertos)
-    add_definitions(-DPICO_BOARD_PICO_W=1)
 else()
     target_link_libraries(${PROJECT_NAME} PRIVATE pico_lwip_freertos)
 endif()
 
 
-# --- Compile Definitions ---
-# Add include paths. Manually adding paths as a brute-force fix for a broken environment.
-target_include_directories(${PROJECT_NAME} PRIVATE
+# --- Compile Definitions and Includes ---
+# Add include paths as PUBLIC so linked libraries (like tinyusb) can see them.
+target_include_directories(${PROJECT_NAME} PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${PICO_SDK_PATH}/lib/tinyusb/src
-    ${PICO_SDK_PATH}/lib/FreeRTOS-Kernel/include
-    ${PICO_SDK_PATH}/lib/FreeRTOS-Kernel/portable/GCC/ARM_CM0
 )
+
+if (PICO_BOARD STREQUAL "pico_w")
+    add_definitions(-DPICO_BOARD_PICO_W=1)
+endif()
 add_compile_definitions(LWIP_HDR_OPTS_H="lwipopts.h")
 
 
