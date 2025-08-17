@@ -15,7 +15,7 @@ file(GLOB_RECURSE FS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/httpd/*)
 # Define the command to generate fsdata.c using the python script
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/fsdata.c
-    COMMAND ${Python3_EXECUTABLE} ${PICO_SDK_PATH}/lib/lwip/src/apps/http/makefsdata/makefsdata.py -h -s -r ${CMAKE_CURRENT_SOURCE_DIR}/httpd
+    COMMAND ${Python3_EXECUTABLE} ${PICO_SDK_PATH}/src/rp2_common/pico_lwip/tools/makefsdata.py -h -s -r ${CMAKE_CURRENT_SOURCE_DIR}/httpd
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS ${FS_FILES}
     COMMENT "Generating fsdata.c from httpd directory"
